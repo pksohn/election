@@ -46,7 +46,9 @@
                     The 2016 Presidential Election in Streetview
                   </v-card-title>
                   <v-card-text>Can you tell the difference between Red and Blue America
-                    from what its streets look like?
+                    from what its streets look like? This game will show you ten different
+                    locations in the U.S. using Google StreetView. See if you can guess
+                    whether that county voted for Trump or Clinton in 2016.
                   </v-card-text>
                   <v-card-actions>
                     <v-btn primary @click.native="startGame">Start Game</v-btn>
@@ -58,10 +60,17 @@
                     Your final score is {{ score }}!
                   </v-card-title>
                   <gmap-map
-                    :center="mapPosition"
+                    :center="{lat: 37.2312178, lng: -86.8040039}"
                     :zoom="4"
                     style="width:100%; min-height:350px; margin: 0 auto;"
                   >
+                    <gmap-marker
+                    v-for="(point, key) in mapHistory"
+                    :position="point.location"
+                    :class="point.outcome"
+                    :key="key"
+                    >
+                    </gmap-marker>
                   </gmap-map>
                   <v-card-actions>
                     <v-btn primary @click.native="startGame">Start Over</v-btn>
@@ -106,6 +115,7 @@ export default {
       gameData: [],
       gamePosition: 0,
       gameResults: [],
+      gameHistory: [],
       guessed: null,
       guessResult: '',
       showStartModal: false,
@@ -146,6 +156,17 @@ export default {
       }
       return message;
     },
+    mapHistory() {
+      let res = {};
+      const vm = this;
+      if (this.gameHistory.length > 0) {
+        res = vm.gameResults.map((currentValue, index) => {
+          const outcome = currentValue ? 'correct' : 'incorrect';
+          return { guess: outcome, location: vm.gameHistory[index] };
+        });
+      }
+      return res;
+    },
   },
   methods: {
     getCounty(party) {
@@ -180,8 +201,10 @@ export default {
       this.getGame();
       this.gamePosition = 0;
       this.gameResults = [];
+      this.gameHistory = [];
       this.gameEnd = false;
       this.gameActive = true;
+      this.showEndModal = false;
       this.showStartModal = false;
     },
     getGame() {
@@ -193,13 +216,14 @@ export default {
       const result = this.gameData[this.gamePosition] === party;
       this.guessed = party;
       this.gameResults.push(result);
+      this.gameHistory.push(this.mapPosition);
+      this.gamePosition += 1;
       this.guessResult = result ? 'Correct!' : 'Incorrect!';
       this.showGuessResult = true;
       this.$gmapDefaultResizeBus.$emit('resize');
     },
     advanceGame() {
       this.showGuessResult = false;
-      this.gamePosition += 1;
       if (this.gamePosition === 10) {
         this.endGame();
       } else {
@@ -214,7 +238,12 @@ export default {
       this.showEndModal = true;
     },
     moveMap(newPosition) {
+      const mapOptions = {
+        addressControl: false,
+        showRoadLabels: false,
+      };
       this.$refs.streetview.$panoObject.setPosition(newPosition);
+      this.$refs.streetview.$panoObject.setOptions(mapOptions);
       this.mapPosition = newPosition;
     },
     checkPoint(newPosition) {
